@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
     Page,
     Navbar,
@@ -13,13 +12,15 @@ import {
     CardContent,
     CardFooter,
     Card,
-    ListItem
+    ListItem,
+    f7
 } from 'framework7-react';
 import { EthereumClient, w3mConnectors, w3mProvider } from '@web3modal/ethereum'
 import { Web3Modal, useWeb3Modal } from '@web3modal/react'
-import { configureChains, createConfig, WagmiConfig, useAccount } from 'wagmi'
+import { configureChains, createConfig, useAccount, useContractRead } from 'wagmi'
 import { bsc } from 'wagmi/chains'
 import { isAddress } from 'ethers/lib/utils';
+import { useEffect, useState } from 'react';
 
 const chains = [bsc];
 const projectId = '999f30bf53975671462b2b201cb0177d';
@@ -32,13 +33,21 @@ const wagmiConfig = createConfig({
 })
 const ethereumClient = new EthereumClient(wagmiConfig, chains);
 
-
 const HomePage = () => {
+    const [contractAddress, setContractAddress] = useState("");
+    const [contractABI, setContractABI] = useState("");
     const { address } = useAccount();
-    const [contractAddress, setAddress] = useState('');
-    const [contractABI, setABI] = useState('');
-
     const { open } = useWeb3Modal();
+    let readOrders = [];
+
+    function triggerOrders() {
+        console.log(readOrders[0]);
+        if(readOrders[0]){
+            const { data } = useContractRead(readOrders[0])
+            console.log(data);
+            // readOrders = readOrders.shift();
+        }
+    }
 
     const functionColor = (stateMutability) => {
         switch (stateMutability) {
@@ -60,19 +69,33 @@ const HomePage = () => {
         }
     }
 
+    function triggerContract(relatedStates, type, event) {
+        const triggeredButton = event.target;
+        let functionIndex = triggeredButton.id.split("_")[1];
+        let functionDetails = relatedStates[functionIndex];
+        console.log(functionDetails);
+        if (type == "read") {
+            readOrders.push({
+                address: f7.store.getters.contractAddress.value,
+                abi: f7.store.getters.contractABI.value,
+                functionName: functionDetails.name
+            })
+        }
+    }
+
     const ContractFunctions = (type) => {
-        if (address && (contractAddress.length > 0) && (contractABI.length > 0)) {
-            let _contractABI, _contractAddress;
+        if (address && (f7.store.getters.contractAddress.value) && (f7.store.getters.contractABI.value)) {
+            let _contractABI;
             //-Check ABI-//
             try {
-                _contractABI = JSON.parse(contractABI);
+                _contractABI = JSON.parse(f7.store.getters.contractABI.value);
             } catch (err) {
                 return (
                     <p>Provided ABI is invalid.</p>
                 )
             }
             //-Check Address-//
-            let isValidAddress = isAddress(contractAddress);
+            let isValidAddress = isAddress(f7.store.getters.contractAddress.value);
             if (isValidAddress == false) {
                 return (
                     <p>Provided contract address is invalid.</p>
@@ -92,16 +115,16 @@ const HomePage = () => {
             const stateInputs = (item) => {
                 if (item.inputs?.length > 0) {
                     return <List strong outline dividers>
-                            <ListItem groupTitle title="Inputs" />
-                            {
-                                item.inputs.map(function (item2, i2) {
-                                    return <ListInput
-                                        label={item2.name + '[' + item2.type + ']'}
-                                        clearButton
-                                    />
-                                })
-                            }
-                        </List>
+                        <ListItem groupTitle title="Inputs" />
+                        {
+                            item.inputs.map(function (item2, i2) {
+                                return <ListInput
+                                    label={item2.name + '[' + item2.type + ']'}
+                                    clearButton
+                                />
+                            })
+                        }
+                    </List>
                 } else {
                     return '';
                 }
@@ -109,23 +132,23 @@ const HomePage = () => {
             const stateOutputs = (item) => {
                 if (item.outputs?.length > 0) {
                     return <List strong outline dividers>
-                            <ListItem groupTitle title="Outputs" />
-                            {
-                                item.outputs.map(function (item2, i2) {
-                                    return <ListInput disabled
-                                        label={item2.name + '[' + item2.type + ']'}
-                                        clearButton
-                                    />
-                                })
-                            }
-                        </List>
+                        <ListItem groupTitle title="Outputs" />
+                        {
+                            item.outputs.map(function (item2, i2) {
+                                return <ListInput disabled
+                                    label={item2.name + '[' + item2.type + ']'}
+                                    clearButton
+                                />
+                            })
+                        }
+                    </List>
                 } else {
                     return '';
                 }
             }
             const callable = (item, index) => {
-                if((item.outputs?.length > 0) || (item.inputs?.length > 0)){
-                    return <Button id={"function_" + index} fill>Call</Button>
+                if ((item.outputs?.length > 0) || (item.inputs?.length > 0)) {
+                    return <Button onClick={(e) => triggerContract(relatedStates, type, e)} id={"function_" + index} fill>Call</Button>
                 }
             }
             return (
@@ -182,7 +205,8 @@ const HomePage = () => {
                         placeholder='0x'
                         clearButton
                         onInput={(e) => {
-                            setAddress(e.target.value)
+                            f7.store.dispatch('contractAddress', { newAddress: e.target.value })
+                            setContractAddress(f7.store.getters.contractAddress.value);
                         }}
                     />
                     <ListInput
@@ -192,7 +216,8 @@ const HomePage = () => {
                         placeholder='[]'
                         clearButton
                         onInput={(e) => {
-                            setABI(e.target.value)
+                            f7.store.dispatch('contractABI', { newABI: e.target.value })
+                            setContractABI(f7.store.getters.contractABI.value);
                         }}
                     />
                 </List>
