@@ -32,7 +32,7 @@ const MyApp = () => {
   // Framework7 Parameters
   const f7params = {
     name: 'Contract Read-Write', // App name
-      theme: 'auto', // Automatic theme detection
+      theme: 'ios', // Automatic theme detection
 
       darkMode: true,
 
