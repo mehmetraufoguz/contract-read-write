@@ -123,6 +123,11 @@ const HomePage = () => {
                     return '';
                 }
             }
+            const callable = (item, index) => {
+                if((item.outputs?.length > 0) || (item.inputs?.length > 0)){
+                    return <Button id={"function_" + index} fill>Call</Button>
+                }
+            }
             return (
                 <div className="grid grid-cols-2 medium-grid-cols-4 grid-gap">
                     {
@@ -134,7 +139,7 @@ const HomePage = () => {
                                     </BlockTitle>
                                     {stateInputs(item)}
                                     {stateOutputs(item)}
-                                    <Button fill>Call</Button>
+                                    {callable(item, i)}
                                 </Block>
                             </div>
                         })
