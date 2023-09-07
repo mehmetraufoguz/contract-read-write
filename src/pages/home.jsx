@@ -12,7 +12,7 @@ import {
     f7
 } from 'framework7-react';
 import { useEffect, useState } from 'react';
-import { useAccount, useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi';
+import { erc20ABI, useAccount, useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi';
 import { useWeb3Modal } from '@web3modal/react';
 import { isAddress } from 'viem';
 
@@ -21,16 +21,18 @@ import functions from "../js/functions";
 const HomePage = () => {
     const { open } = useWeb3Modal();
     const { address } = useAccount();
+    const [contractAddress, setContractAddress] = useState(f7.store.getters.contractAddress.value);
+    const [contractABI, setContractABI] = useState(f7.store.getters.contractABI.value);
     const [dataContractRead, setContractRead] = useState({
-        abi: JSON.parse(f7.store.getters.contractABI.value),
-        address: f7.store.getters.contractAddress.value,
+        abi: Array.isArray(contractABI) ? contractABI : erc20ABI,
+        address: contractAddress,
         functionName: "",
         args: [],
         cacheData: {}
     });
     const [dataContractWrite, setContractWrite] = useState({
-        abi: JSON.parse(f7.store.getters.contractABI.value),
-        address: f7.store.getters.contractAddress.value,
+        abi: Array.isArray(contractABI) ? contractABI : erc20ABI,
+        address: contractAddress,
         functionName: "",
         args: [],
         cacheData: {}
@@ -80,6 +82,8 @@ const HomePage = () => {
             if (type == "read") {
                 setContractRead({
                     ...dataContractRead,
+                    address: contractAddress,
+                    abi: contractABI,
                     functionName: functionDetails.name,
                     args: preparedArgs,
                     cacheData: functionDetails
@@ -88,6 +92,8 @@ const HomePage = () => {
             if (type == "write") {
                 setContractWrite({
                     ...dataContractWrite,
+                    address: contractAddress,
+                    abi: contractABI,
                     functionName: functionDetails.name,
                     cacheData: functionDetails
                 })
@@ -99,18 +105,18 @@ const HomePage = () => {
     }
 
     const ContractFunctions = (type) => {
-        if (address && (f7.store.getters.contractAddress.value) && (f7.store.getters.contractABI.value)) {
+        if (address && (contractAddress) && (contractABI)) {
             let _contractABI;
             //-Check ABI-//
             try {
-                _contractABI = JSON.parse(f7.store.getters.contractABI.value);
+                _contractABI = contractABI;
             } catch (err) {
                 return (
                     <p>Provided ABI is invalid.</p>
                 )
             }
             //-Check Address-//
-            let isValidAddress = isAddress(f7.store.getters.contractAddress.value);
+            let isValidAddress = isAddress(contractAddress);
             if (isValidAddress == false) {
                 return (
                     <p>Provided contract address is invalid.</p>
@@ -252,22 +258,27 @@ const HomePage = () => {
                 <List>
                     <ListInput
                         outline
-                        value={f7.store.getters.contractAddress.value}
+                        value={contractAddress}
                         label='Address'
                         placeholder='0x'
                         clearButton
                         onInput={(e) => {
                             f7.store.dispatch('contractAddress', { newAddress: e.target.value })
+                            setContractAddress(e.target.value);
                         }}
                     />
                     <ListInput
                         outline
-                        value={f7.store.getters.contractABI.value}
+                        value={JSON.stringify(contractABI)}
                         label='ABI'
                         placeholder='[]'
                         clearButton
                         onInput={(e) => {
-                            f7.store.dispatch('contractABI', { newABI: e.target.value })
+                            try {
+                                const newArray = JSON.parse(e.target.value);
+                                f7.store.dispatch('contractABI', { newABI: newArray })
+                                setContractABI(newArray);
+                            } catch (err) {}
                         }}
                     />
                 </List>
