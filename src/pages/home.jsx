@@ -11,22 +11,23 @@ import {
     ListItem,
     f7
 } from 'framework7-react';
-import { isAddress } from 'ethers/lib/utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAccount, useContractRead } from 'wagmi';
+import { useWeb3Modal } from '@web3modal/react';
+import { isAddress } from 'viem';
+
+import functions from "../js/functions";
 
 const HomePage = () => {
-    const [contractAddress, setContractAddress] = useState("");
-    const [contractABI, setContractABI] = useState("");
-    let readOrders = [];
-
-    function triggerOrders() {
-        console.log(readOrders[0]);
-        if(readOrders[0]){
-            const { data } = useContractRead(readOrders[0])
-            console.log(data);
-            // readOrders = readOrders.shift();
-        }
-    }
+    const { open } = useWeb3Modal();
+    const { address, isConnected } = useAccount();
+    const [dataContractRead, setContractRead] = useState({
+        abi: JSON.parse(f7.store.getters.contractABI.value),
+        address: f7.store.getters.contractAddress.value,
+        functionName: "owner",
+        args: [],
+        cacheData: {}
+    });
 
     const functionColor = (stateMutability) => {
         switch (stateMutability) {
@@ -48,16 +49,30 @@ const HomePage = () => {
         }
     }
 
-    function triggerContract(relatedStates, type, event) {
+    const { data: contractReadResult, refetch: contractReadRefetch, isSuccess: contractReadSuccess } = useContractRead(dataContractRead);
+
+    async function triggerContract(relatedStates, type, event) {
         const triggeredButton = event.target;
         let functionIndex = triggeredButton.id.split("_")[1];
         let functionDetails = relatedStates[functionIndex];
-        console.log(functionDetails);
-        if (type == "read") {
-            readOrders.push({
-                address: f7.store.getters.contractAddress.value,
-                abi: f7.store.getters.contractABI.value,
-                functionName: functionDetails.name
+        // console.log(functionDetails);
+        let preparedArgs = [];
+
+        for (let i = 0; i < functionDetails.inputs.length; i++) {
+            let argInput = document.getElementById(functionDetails.name + "_arg" + i)?.querySelector("input");
+            if(argInput){
+                preparedArgs.push(argInput?.value);
+            }else{
+                preparedArgs.push(null);
+            }
+        }
+
+        if(!preparedArgs.includes(null)){
+            setContractRead({
+                ...dataContractRead,
+                functionName: functionDetails.name,
+                args: preparedArgs,
+                cacheData: functionDetails
             })
         }
     }
@@ -89,7 +104,6 @@ const HomePage = () => {
                     return false;
                 }
             })
-            console.log(relatedStates);
 
             const stateInputs = (item) => {
                 if (item.inputs?.length > 0) {
@@ -98,6 +112,7 @@ const HomePage = () => {
                         {
                             item.inputs.map(function (item2, i2) {
                                 return <ListInput
+                                    id={item.name + "_arg" + i2}
                                     label={item2.name + '[' + item2.type + ']'}
                                     clearButton
                                 />
@@ -115,6 +130,7 @@ const HomePage = () => {
                         {
                             item.outputs.map(function (item2, i2) {
                                 return <ListInput disabled
+                                    id={item.name + "_result" + i2}
                                     label={item2.name + '[' + item2.type + ']'}
                                     clearButton
                                 />
@@ -126,9 +142,9 @@ const HomePage = () => {
                 }
             }
             const callable = (item, index) => {
-                if ((item.outputs?.length > 0) || (item.inputs?.length > 0)) {
+                // if ((item.outputs?.length > 0) || (item.inputs?.length > 0)) {
                     return <Button onClick={(e) => triggerContract(relatedStates, type, e)} id={"function_" + index} fill>Call</Button>
-                }
+                // }
             }
             return (
                 <div className="grid grid-cols-2 medium-grid-cols-4 grid-gap">
@@ -155,6 +171,15 @@ const HomePage = () => {
         }
     }
 
+    useEffect(() => {
+        if ((contractReadResult?.toString()) && (contractReadSuccess)) {
+            const methodOutputs = dataContractRead.cacheData.outputs;
+            if(methodOutputs?.length == 1){
+                document.getElementById(dataContractRead.functionName + "_result0").querySelector("input").value = functions.formatContractReturn(contractReadResult, methodOutputs[0].type);
+            }
+            
+        }
+    }, [contractReadResult, contractReadSuccess]);
     return (
         <Page name='home'>
             <Navbar>
@@ -180,23 +205,22 @@ const HomePage = () => {
                 <List>
                     <ListInput
                         outline
+                        value={f7.store.getters.contractAddress.value}
                         label='Address'
                         placeholder='0x'
                         clearButton
                         onInput={(e) => {
                             f7.store.dispatch('contractAddress', { newAddress: e.target.value })
-                            setContractAddress(f7.store.getters.contractAddress.value);
                         }}
                     />
                     <ListInput
                         outline
+                        value={f7.store.getters.contractABI.value}
                         label='ABI'
-                        type='textarea'
                         placeholder='[]'
                         clearButton
                         onInput={(e) => {
                             f7.store.dispatch('contractABI', { newABI: e.target.value })
-                            setContractABI(f7.store.getters.contractABI.value);
                         }}
                     />
                 </List>
