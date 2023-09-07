@@ -38,6 +38,11 @@ const HomePage = () => {
         cacheData: {}
     });
 
+    /**
+     * @dev Function to determine the color code based on the state mutability of a contract function.
+     * @param stateMutability The state mutability of the function ('nonpayable', 'payable', 'view', or 'pure').
+     * @returns Color code for UI representation.
+     */
     const functionColor = (stateMutability) => {
         switch (stateMutability) {
             case 'nonpayable':
@@ -62,6 +67,12 @@ const HomePage = () => {
     const { data: contractWriteResult, writeAsync: contractWriteTrigger, isSuccess: contractWriteSuccess } = useContractWrite(dataContractWrite);
     const { data: contractWriteResultTX } = useWaitForTransaction({ hash: contractWriteResult && contractWriteResult.hash });
 
+    /**
+     * @dev Function to trigger a contract function for reading or writing data.
+     * @param relatedStates Array of contract function details.
+     * @param type Type of operation ('read' or 'write').
+     * @param event Event triggered when the function is called.
+     */
     async function triggerContract(relatedStates, type, event) {
         const triggeredButton = event.target;
         let functionIndex = triggeredButton.id.split("_")[1];
@@ -104,6 +115,11 @@ const HomePage = () => {
         }
     }
 
+    /**
+     * @dev Function to display contract functions based on the provided type.
+     * @param type Type of operation ('read' or 'write').
+     * @returns Contract functions UI.
+     */
     const ContractFunctions = (type) => {
         if (address && (contractAddress) && (contractABI)) {
             let _contractABI;
@@ -156,22 +172,32 @@ const HomePage = () => {
                         <ListItem groupTitle title="Outputs" />
                         {
                             type == "read" ?
-                            item.outputs.map(function (item2, i2) {
-                                return <ListInput disabled
-                                    id={item.name + "_result" + i2}
-                                    label={item2.name + '[' + item2.type + ']'}
+                                item.outputs.map(function (item2, i2) {
+                                    return <ListInput disabled
+                                        id={item.name + "_result" + i2}
+                                        label={item2.name + '[' + item2.type + ']'}
+                                        clearButton
+                                    />
+                                })
+                                : <ListInput disabled
+                                    id={item.name + "_result0"}
+                                    label={'transactionHash[bytes32]'}
                                     clearButton
                                 />
-                            })
-                            : <ListInput disabled
-                                id={item.name + "_result0"}
-                                label={'transactionHash[bytes32]'}
-                                clearButton
-                            />
                         }
                     </List>
                 } else {
-                    return '';
+                    return <List strong outline dividers>
+                        <ListItem groupTitle title="Outputs" />{
+                            type == "read" ?
+                                "" :
+                                <ListInput disabled
+                                    id={item.name + "_result0"}
+                                    label={'transactionHash[bytes32]'}
+                                    clearButton
+                                />
+                        }
+                    </List>
                 }
             }
             const callable = (item, index) => {
@@ -204,9 +230,14 @@ const HomePage = () => {
         }
     }
 
+    /**
+     * @dev Function to handle contract return data and update UI.
+     * @param side Side of the contract ('read' or 'write').
+     * @param data Data returned from the contract.
+     */
     const handleContractReturn = async (side, data) => {
         const contractResult = (side == "read" ? contractReadResult : contractWriteResultTX);
-        if(side == "write"){
+        if (side == "write") {
             document.getElementById(data.functionName + "_result0").querySelector("input").value = contractResult.transactionHash;
         }
         if (side == "read") {
@@ -278,7 +309,7 @@ const HomePage = () => {
                                 const newArray = JSON.parse(e.target.value);
                                 f7.store.dispatch('contractABI', { newABI: newArray })
                                 setContractABI(newArray);
-                            } catch (err) {}
+                            } catch (err) { }
                         }}
                     />
                 </List>
