@@ -12,7 +12,7 @@ import {
     f7
 } from 'framework7-react';
 import { useEffect, useState } from 'react';
-import { useAccount, useContractRead } from 'wagmi';
+import { useAccount, useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi';
 import { useWeb3Modal } from '@web3modal/react';
 import { isAddress } from 'viem';
 
@@ -24,7 +24,14 @@ const HomePage = () => {
     const [dataContractRead, setContractRead] = useState({
         abi: JSON.parse(f7.store.getters.contractABI.value),
         address: f7.store.getters.contractAddress.value,
-        functionName: "owner",
+        functionName: "",
+        args: [],
+        cacheData: {}
+    });
+    const [dataContractWrite, setContractWrite] = useState({
+        abi: JSON.parse(f7.store.getters.contractABI.value),
+        address: f7.store.getters.contractAddress.value,
+        functionName: "",
         args: [],
         cacheData: {}
     });
@@ -50,6 +57,8 @@ const HomePage = () => {
     }
 
     const { data: contractReadResult, refetch: contractReadRefetch, isSuccess: contractReadSuccess } = useContractRead(dataContractRead);
+    const { data: contractWriteResult, writeAsync: contractWriteTrigger, isSuccess: contractWriteSuccess } = useContractWrite(dataContractWrite);
+    const { data: contractWriteResultTX } = useWaitForTransaction({ hash: contractWriteResult && contractWriteResult.hash });
 
     async function triggerContract(relatedStates, type, event) {
         const triggeredButton = event.target;
@@ -60,7 +69,8 @@ const HomePage = () => {
         for (let i = 0; i < functionDetails.inputs.length; i++) {
             let argInput = document.getElementById(functionDetails.name + "_arg" + i)?.querySelector("input");
             if (argInput) {
-                preparedArgs.push(argInput?.value);
+                const formattedInputValue = functions.formatContractInput(argInput?.value, functionDetails.inputs[i].type);
+                preparedArgs.push(formattedInputValue);
             } else {
                 preparedArgs.push(null);
             }
@@ -74,6 +84,16 @@ const HomePage = () => {
                     args: preparedArgs,
                     cacheData: functionDetails
                 })
+            }
+            if (type == "write") {
+                setContractWrite({
+                    ...dataContractWrite,
+                    functionName: functionDetails.name,
+                    cacheData: functionDetails
+                })
+                await contractWriteTrigger({
+                    args: preparedArgs
+                });
             }
         }
     }
@@ -129,6 +149,7 @@ const HomePage = () => {
                     return <List strong outline dividers>
                         <ListItem groupTitle title="Outputs" />
                         {
+                            type == "read" ?
                             item.outputs.map(function (item2, i2) {
                                 return <ListInput disabled
                                     id={item.name + "_result" + i2}
@@ -136,6 +157,11 @@ const HomePage = () => {
                                     clearButton
                                 />
                             })
+                            : <ListInput disabled
+                                id={item.name + "_result0"}
+                                label={'transactionHash[bytes32]'}
+                                clearButton
+                            />
                         }
                     </List>
                 } else {
@@ -172,20 +198,35 @@ const HomePage = () => {
         }
     }
 
-    useEffect(() => {
-        if ((contractReadResult?.toString()) && (contractReadSuccess)) {
-            const methodOutputs = dataContractRead.cacheData.outputs;
+    const handleContractReturn = async (side, data) => {
+        const contractResult = (side == "read" ? contractReadResult : contractWriteResultTX);
+        if(side == "write"){
+            document.getElementById(data.functionName + "_result0").querySelector("input").value = contractResult.transactionHash;
+        }
+        if (side == "read") {
+            const methodOutputs = data.cacheData.outputs;
             if (methodOutputs?.length == 1) {
-                document.getElementById(dataContractRead.functionName + "_result0").querySelector("input").value = functions.formatContractReturn(contractReadResult, methodOutputs[0].type);
+                document.getElementById(data.functionName + "_result0").querySelector("input").value = functions.formatContractReturn(contractResult, methodOutputs[0].type);
             } else if ((methodOutputs?.length > 1) && Array.isArray(methodOutputs)) {
                 for (let i = 0; i < methodOutputs?.length; i++) {
                     const parameter = methodOutputs[i];
-                    document.getElementById(dataContractRead.functionName + "_result" + i).querySelector("input").value = functions.formatContractReturn(contractReadResult[i], parameter.type);
+                    document.getElementById(data.functionName + "_result" + i).querySelector("input").value = functions.formatContractReturn(contractResult[i], parameter.type);
                 }
             }
+        }
+    }
 
+    useEffect(() => {
+        if ((contractReadResult?.toString()) && (contractReadSuccess)) {
+            handleContractReturn("read", dataContractRead);
         }
     }, [contractReadResult, contractReadSuccess]);
+
+    useEffect(() => {
+        if ((contractWriteResultTX?.toString()) && (contractWriteSuccess)) {
+            handleContractReturn("write", dataContractWrite);
+        }
+    }, [contractWriteResultTX, contractWriteSuccess])
     return (
         <Page name='home'>
             <Navbar>
