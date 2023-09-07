@@ -8,36 +8,15 @@ import {
     List,
     Button,
     ListInput,
-    CardHeader,
-    CardContent,
-    CardFooter,
-    Card,
     ListItem,
     f7
 } from 'framework7-react';
-import { EthereumClient, w3mConnectors, w3mProvider } from '@web3modal/ethereum'
-import { Web3Modal, useWeb3Modal } from '@web3modal/react'
-import { configureChains, createConfig, useAccount, useContractRead } from 'wagmi'
-import { bsc } from 'wagmi/chains'
 import { isAddress } from 'ethers/lib/utils';
-import { useEffect, useState } from 'react';
-
-const chains = [bsc];
-const projectId = '999f30bf53975671462b2b201cb0177d';
-
-const { publicClient } = configureChains(chains, [w3mProvider({ projectId })])
-const wagmiConfig = createConfig({
-    autoConnect: true,
-    connectors: w3mConnectors({ projectId, version: 1, chains }),
-    publicClient
-})
-const ethereumClient = new EthereumClient(wagmiConfig, chains);
+import { useState } from 'react';
 
 const HomePage = () => {
     const [contractAddress, setContractAddress] = useState("");
     const [contractABI, setContractABI] = useState("");
-    const { address } = useAccount();
-    const { open } = useWeb3Modal();
     let readOrders = [];
 
     function triggerOrders() {
@@ -222,7 +201,6 @@ const HomePage = () => {
                     />
                 </List>
             </Block>
-            <Web3Modal projectId={projectId} ethereumClient={ethereumClient} />
         </Page>
     );
 };
