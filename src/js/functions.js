@@ -2,7 +2,7 @@ export default {
     formatContractReturn: (data, type) => {
         switch (true) {
             case /bool/.test(type):
-                if(type == true){
+                if(data == true){
                     return "true";
                 }else{
                     return "false";

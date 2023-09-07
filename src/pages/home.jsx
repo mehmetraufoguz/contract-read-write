@@ -20,7 +20,7 @@ import functions from "../js/functions";
 
 const HomePage = () => {
     const { open } = useWeb3Modal();
-    const { address, isConnected } = useAccount();
+    const { address } = useAccount();
     const [dataContractRead, setContractRead] = useState({
         abi: JSON.parse(f7.store.getters.contractABI.value),
         address: f7.store.getters.contractAddress.value,
@@ -55,25 +55,26 @@ const HomePage = () => {
         const triggeredButton = event.target;
         let functionIndex = triggeredButton.id.split("_")[1];
         let functionDetails = relatedStates[functionIndex];
-        // console.log(functionDetails);
         let preparedArgs = [];
 
         for (let i = 0; i < functionDetails.inputs.length; i++) {
             let argInput = document.getElementById(functionDetails.name + "_arg" + i)?.querySelector("input");
-            if(argInput){
+            if (argInput) {
                 preparedArgs.push(argInput?.value);
-            }else{
+            } else {
                 preparedArgs.push(null);
             }
         }
 
-        if(!preparedArgs.includes(null)){
-            setContractRead({
-                ...dataContractRead,
-                functionName: functionDetails.name,
-                args: preparedArgs,
-                cacheData: functionDetails
-            })
+        if (!preparedArgs.includes(null)) {
+            if (type == "read") {
+                setContractRead({
+                    ...dataContractRead,
+                    functionName: functionDetails.name,
+                    args: preparedArgs,
+                    cacheData: functionDetails
+                })
+            }
         }
     }
 
@@ -143,7 +144,7 @@ const HomePage = () => {
             }
             const callable = (item, index) => {
                 // if ((item.outputs?.length > 0) || (item.inputs?.length > 0)) {
-                    return <Button onClick={(e) => triggerContract(relatedStates, type, e)} id={"function_" + index} fill>Call</Button>
+                return <Button onClick={(e) => triggerContract(relatedStates, type, e)} id={"function_" + index} fill>Call</Button>
                 // }
             }
             return (
@@ -174,10 +175,15 @@ const HomePage = () => {
     useEffect(() => {
         if ((contractReadResult?.toString()) && (contractReadSuccess)) {
             const methodOutputs = dataContractRead.cacheData.outputs;
-            if(methodOutputs?.length == 1){
+            if (methodOutputs?.length == 1) {
                 document.getElementById(dataContractRead.functionName + "_result0").querySelector("input").value = functions.formatContractReturn(contractReadResult, methodOutputs[0].type);
+            } else if ((methodOutputs?.length > 1) && Array.isArray(methodOutputs)) {
+                for (let i = 0; i < methodOutputs?.length; i++) {
+                    const parameter = methodOutputs[i];
+                    document.getElementById(dataContractRead.functionName + "_result" + i).querySelector("input").value = functions.formatContractReturn(contractReadResult[i], parameter.type);
+                }
             }
-            
+
         }
     }, [contractReadResult, contractReadSuccess]);
     return (
